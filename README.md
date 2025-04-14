@@ -52,7 +52,7 @@ python main.py
 The system can be configured via the `config.yaml` file:
 
 - **data_sources**: APIs for data acquisition
-- **markets**: List of power markets to analyze (e.g., DE, FR, NL)
+- **markets**: List of power markets to analyze (e.g., DK, DE, FR, NL)
 - **lookback_days**: Number of days of historical data to use
 - **model**: Configuration for forecasting model
 - **paths**: Directory paths for data and model storage
@@ -63,7 +63,3 @@ The system can be configured via the `config.yaml` file:
 - Implement new feature engineering techniques in the `DataProcessor` class
 - Add new models by extending the `ModelTrainer` class
 - Create new visualizations in the `Visualization` class
-
-## License
-
-This project is licensed under the MIT License.
