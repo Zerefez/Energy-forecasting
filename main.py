@@ -6,6 +6,7 @@ import os
 import yaml
 import pandas as pd
 from typing import Dict, List
+import glob
 from logger import setup_logger
 from data_ingestion import DataIngestion
 from data_processor import DataProcessor
@@ -15,6 +16,38 @@ import matplotlib.pyplot as plt
 
 # Set up logging
 logger = setup_logger()
+
+def clean_old_plots(data_dir: str, markets: List[str]) -> None:
+    """Remove old plot files before generating new ones"""
+    logger.info("Cleaning up old plot files...")
+    
+    # Clean up plots in main data directory
+    plot_patterns = [
+        os.path.join(data_dir, "*_price_series.png"),
+        os.path.join(data_dir, "*_daily_patterns.png"),
+        os.path.join(data_dir, "feature_importance.png")
+    ]
+    
+    for pattern in plot_patterns:
+        for file_path in glob.glob(pattern):
+            try:
+                os.remove(file_path)
+                logger.debug(f"Removed old plot: {file_path}")
+            except Exception as e:
+                logger.warning(f"Failed to remove {file_path}: {e}")
+    
+    # Clean up plots in country-specific folders
+    for market in markets:
+        market_dir = os.path.join(data_dir, "countries", market.lower())
+        if os.path.exists(market_dir):
+            for file_path in glob.glob(os.path.join(market_dir, "*.png")):
+                try:
+                    os.remove(file_path)
+                    logger.debug(f"Removed old plot: {file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove {file_path}: {e}")
+    
+    logger.info("Old plot files cleaned up successfully")
 
 def load_config(config_path: str = "config.yaml") -> Dict:
     """Load configuration from YAML file"""
@@ -52,6 +85,10 @@ def run_pipeline(config_path: str = "config.yaml") -> None:
     data_ingestion = DataIngestion(config_path)
     data_processor = DataProcessor()
     model_trainer = ModelTrainer(config.get("model", {}).get("type", "random_forest"))
+    
+    # Clean up old plot files
+    data_dir = config.get("paths", {}).get("data_dir", "data/")
+    clean_old_plots(data_dir, markets)
     
     all_price_data = []
     all_weather_data = []
@@ -126,23 +163,39 @@ def run_pipeline(config_path: str = "config.yaml") -> None:
     
     # Only create visualizations if we have data
     if not merged_df.empty:
+        # Create folder for visualizations if it doesn't exist
+        viz_dir = os.path.join(data_dir, "countries")
+        os.makedirs(viz_dir, exist_ok=True)
+        
         # Plot price series for all markets
         for market in markets:
+            # Create market-specific folder
+            market_dir = os.path.join(viz_dir, market.lower())
+            os.makedirs(market_dir, exist_ok=True)
+            
+            # Save market-specific visualizations
+            fig = viz.plot_price_series(merged_df, market=market)
+            fig.savefig(os.path.join(market_dir, "price_series.png"))
+            plt.close(fig)  # Close the figure to free memory
+            
+            fig3 = viz.plot_daily_patterns(processed_df, market=market)
+            fig3.savefig(os.path.join(market_dir, "daily_patterns.png"))
+            plt.close(fig3)  # Close the figure to free memory
+            
+            # Also save to data directory for backward compatibility
             fig = viz.plot_price_series(merged_df, market=market)
             fig.savefig(os.path.join(data_dir, f"{market.lower()}_price_series.png"))
-            plt.close(fig)  # Close the figure to free memory
+            plt.close(fig)
+            
+            fig3 = viz.plot_daily_patterns(processed_df, market=market)
+            fig3.savefig(os.path.join(data_dir, f"{market.lower()}_daily_patterns.png"))
+            plt.close(fig3)
         
-        # Plot feature importance
+        # Plot feature importance - save to data root as it's a general visualization
         if model_trainer.feature_importance is not None:
             fig2 = viz.plot_feature_importance(model_trainer.feature_importance)
             fig2.savefig(os.path.join(data_dir, "feature_importance.png"))
             plt.close(fig2)  # Close the figure to free memory
-        
-        # Plot daily patterns for all markets
-        for market in markets:
-            fig3 = viz.plot_daily_patterns(processed_df, market=market)
-            fig3.savefig(os.path.join(data_dir, f"{market.lower()}_daily_patterns.png"))
-            plt.close(fig3)  # Close the figure to free memory
         
         logger.info("Pipeline completed successfully")
     else:
