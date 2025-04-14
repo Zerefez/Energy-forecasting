@@ -1,0 +1,19 @@
+data_sources:
+  entsoe: "https://transparency.entsoe.eu/api"
+  nordpool: "https://www.nordpoolgroup.com/api/marketdata"
+
+markets:
+- "DE"
+- "FR"
+- "NL"
+- "DK"
+
+lookback_days: 30
+
+model:
+  type: "random_forest"
+  forecast_horizon: 3
+
+paths:
+  models_dir: "models/"
+  data_dir: "data/"
